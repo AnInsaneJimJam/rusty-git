@@ -1,0 +1,17 @@
+enum Command{
+    Add,
+    CatFile,
+    CheckIgnore,
+    Checkout,
+    Commit,
+    HashObject,
+    Init,
+    Log,
+    LsFiles,
+    LsTrees,
+    RevParse,
+    Rm,
+    ShowRef,
+    Status,
+    Tag,
+}
