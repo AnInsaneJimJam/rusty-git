@@ -1,4 +1,4 @@
-enum Command{
+enum Command {
     Add,
     CatFile,
     CheckIgnore,
