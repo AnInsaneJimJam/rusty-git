@@ -1,4 +1,5 @@
 use std::{clone, env};
+use ini::Ini;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -41,4 +42,20 @@ fn main() {
     fn cmd_status(args: &Vec<String>) {}
     fn cmd_tag(args: &Vec<String>) {}
 
+}
+
+struct GitRepository{
+    worktree: String,
+    gitdir : String,
+    conf: Ini
+}
+
+impl GitRepository{
+    fn new(path:String,force:bool) -> Result<Self,String>{
+        //TODO: Windows has a different filesystem. Have to look for that
+        let worktree = path.clone();
+        let gitdir = format!("{}/.git", worktree);
+        //For now, satifying the analyser. Fix later
+        Ok(GitRepository { worktree, gitdir, conf: path.clone() })
+    }
 }
