@@ -56,6 +56,7 @@ impl GitRepository{
         let worktree = path.clone();
         let gitdir = format!("{}/.git", worktree);
         //For now, satifying the analyser. Fix later
+        // Has to look fr INI file
         Ok(GitRepository { worktree, gitdir, conf: path.clone() })
     }
 }
