@@ -1,4 +1,5 @@
-use std::{clone, env};
+#![allow(warnings)]
+use std::{env,path::{PathBuf},fs};
 use ini::Ini;
 
 fn main() {
@@ -45,18 +46,83 @@ fn main() {
 }
 
 struct GitRepository{
-    worktree: String,
-    gitdir : String,
+    worktree: PathBuf,
+    gitdir : PathBuf,
     conf: Ini
 }
 
 impl GitRepository{
     fn new(path:String,force:bool) -> Result<Self,String>{
-        //TODO: Windows has a different filesystem. Have to look for that
-        let worktree = path.clone();
-        let gitdir = format!("{}/.git", worktree);
-        //For now, satifying the analyser. Fix later
-        // Has to look fr INI file
-        Ok(GitRepository { worktree, gitdir, conf: path.clone() })
+        let worktree = PathBuf::from(path);
+        let gitdir = worktree.join(".git");
+        if (force == false && gitdir.is_dir() == false) {
+            return Err(format!("Not a Git repository {:?}",worktree))
+        }
+        let mut repo = GitRepository {
+            worktree,
+            gitdir,
+            conf: Ini::new(),
+        };
+
+        let cf = repo.repo_file("config", false);
+
+        if let Some(config_path) = cf {
+            if config_path.exists() {
+                repo.conf = Ini::load_from_file(config_path).map_err(|e| e.to_string())?;
+            } else if !force {
+                return Err("Configuration file missing".to_string());
+            }
+        }
+        if !force {
+            // Check for repositoryformatversion in the [core] section
+            let section = repo.conf.section(Some("core"))
+                .ok_or("Missing [core] section in config")?;
+            
+            let vers = section.get("repositoryformatversion")
+                .ok_or("Missing repositoryformatversion")?;
+
+            if vers != "0" {
+                return Err(format!("Unsupported repositoryformatversion: {}", vers));
+            }
+        }
+
+        Ok(repo)
     }
+
+    // Compute path under repo's gitdir.
+    fn repo_path(&self, path: &str) -> PathBuf {
+        self.gitdir.join(path)
+    }
+
+    /// Same as repo_path, but mkdir the parent directory if absent.
+    pub fn repo_file(&self, path: &str, mkdir: bool) -> Option<PathBuf> {
+        let target_path = self.repo_path(path);
+        if let Some(parent) = target_path.parent() {
+            if self.repo_dir(parent.to_str().unwrap(), mkdir).is_some() {
+                return Some(target_path);
+            }
+        }
+        None
+    }
+
+    /// Same as repo_path, but mkdir the directory if mkdir is true.
+    pub fn repo_dir(&self, path: &str, mkdir: bool) -> Option<PathBuf> {
+        let p = self.repo_path(path);
+
+        if p.exists() {
+            if p.is_dir() {
+                return Some(p);
+            } else {
+                panic!("Not a directory: {:?}", p);
+            }
+        }
+
+        if mkdir {
+            fs::create_dir_all(&p).expect("Failed to create directory");
+            return Some(p);
+        }
+
+        None
+    }
+
 }
