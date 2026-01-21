@@ -1,6 +1,6 @@
 #![allow(warnings)]
-use std::{env,path::{PathBuf},fs};
 use ini::Ini;
+use std::{env, fs, path::{Path, PathBuf}};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -33,7 +33,6 @@ fn main() {
     fn cmd_checkout(args: &Vec<String>) {}
     fn cmd_commit(args: &Vec<String>) {}
     fn cmd_hash_object(args: &Vec<String>) {}
-    fn cmd_init(args: &Vec<String>) {}
     fn cmd_log(args: &Vec<String>) {}
     fn cmd_ls_files(args: &Vec<String>) {}
     fn cmd_ls_trees(args: &Vec<String>) {}
@@ -42,21 +41,20 @@ fn main() {
     fn cmd_show_ref(args: &Vec<String>) {}
     fn cmd_status(args: &Vec<String>) {}
     fn cmd_tag(args: &Vec<String>) {}
-
 }
 
-struct GitRepository{
+struct GitRepository {
     worktree: PathBuf,
-    gitdir : PathBuf,
-    conf: Ini
+    gitdir: PathBuf,
+    conf: Ini,
 }
 
-impl GitRepository{
-    fn new(path:String,force:bool) -> Result<Self,String>{
+impl GitRepository {
+    fn new(path: String, force: bool) -> Result<Self, String> {
         let worktree = PathBuf::from(path);
         let gitdir = worktree.join(".git");
         if (force == false && gitdir.is_dir() == false) {
-            return Err(format!("Not a Git repository {:?}",worktree))
+            return Err(format!("Not a Git repository {:?}", worktree));
         }
         let mut repo = GitRepository {
             worktree,
@@ -73,12 +71,15 @@ impl GitRepository{
                 return Err("Configuration file missing".to_string());
             }
         }
-        if !force {
+        if (force == false) {
             // Check for repositoryformatversion in the [core] section
-            let section = repo.conf.section(Some("core"))
+            let section = repo
+                .conf
+                .section(Some("core"))
                 .ok_or("Missing [core] section in config")?;
-            
-            let vers = section.get("repositoryformatversion")
+
+            let vers = section
+                .get("repositoryformatversion")
                 .ok_or("Missing repositoryformatversion")?;
 
             if vers != "0" {
@@ -123,6 +124,67 @@ impl GitRepository{
         }
 
         None
+    }}
+
+
+    // Create a new repository at path
+    fn repo_create(path: String) -> Result<GitRepository, String> {
+        let repo = GitRepository::new(path, true).expect("Unable to create a repo");
+        let worktree = &repo.worktree;
+        let gitdir = &repo.gitdir;
+        if worktree.exists() {
+            if worktree.is_dir() {
+                return Err(format!("{:?} is not a directory", worktree));
+            }
+            if gitdir.exists() && fs::read_dir(gitdir).expect("").count() != 0 {
+                return Err(format!(" {:?} is not empty", worktree));
+            }
+        } else {
+            fs::create_dir(&worktree)
+                .expect("Failed to create directory while running |repo_create|");
+        }
+        repo.repo_dir("branches", true);
+        repo.repo_dir("objects", true);
+        repo.repo_dir("refs/tags", true);
+        repo.repo_dir("refs/heads", true);
+
+        fs::write(
+            repo.repo_file("description", false).unwrap(),
+            "Unnamed repository; edit this file 'description' to name the repository.\n",
+        );
+        fs::write(
+            repo.repo_file("HEAD", false).unwrap(),
+            "ref: refs/heads/master\n",
+        );
+        //TODO: yet to be implemented 
+        fs::write(
+            repo.repo_file("config", false).unwrap(),
+            repo_default_config(),
+        );
+        return Ok(repo);
     }
 
+//TODO: yet to be implemented
+fn repo_default_config() -> String {
+    todo!("Implement it")
 }
+
+// Have to implement the default parameter
+fn cmd_init(args: &Vec<String>) {
+    if(args.len() == 4){
+    repo_create(args[3].clone());}
+    else if(args.len() == 3){
+        repo_create(String::from(".")).expect("Not able to create repo in source");
+    }else{
+        panic!("Invalid Command");
+    }
+}
+
+fn repo_find(path:String, required :bool) -> GitRepository{
+    let path = PathBuf::from(path);
+    if((path.join(".git")).is_dir()){
+        return GitRepository(path)
+    }
+    todo!("Implement parent stuff")
+}
+
