@@ -181,9 +181,9 @@ fn cmd_init(args: &Vec<String>) {
 }
 
 fn repo_find(path:String, required :bool) -> GitRepository{
-    let path = PathBuf::from(path);
-    if((path.join(".git")).is_dir()){
-        return GitRepository(path)
+    let path_buf = PathBuf::from(path.clone());
+    if((path_buf.join(".git")).is_dir()){
+        return GitRepository::new(path,false).unwrap();
     }
     todo!("Implement parent stuff")
 }
