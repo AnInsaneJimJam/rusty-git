@@ -1,11 +1,12 @@
 #![allow(warnings)]
-use flate2::read::ZlibDecoder;
+use flate2::{read::ZlibDecoder,write::ZlibEncoder,Compression};
 use ini::Ini;
 use std::{
     env, fs,
-    io::Read,
+    io::{Read, Write},
     path::{Path, PathBuf},
 };
+use sha1::{Sha1, Digest};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -226,9 +227,10 @@ trait GitObject {
     }
 
     // Must be implemented by whom the trait is implied by
-    fn serialize(&self, repo: GitRepository) {}
+    fn serialize(&self, repo: Option<GitRepository>) {}
     fn deserialize(&self, data: String) {}
     fn init(&self) {}
+    fn get_format(&self) -> &[u8]{}
 }
 
 /// Read object sha from Git repository repo. Return a Gitobject whose exact type depends on object
@@ -274,3 +276,33 @@ fn object_read(repo: GitRepository, sha: &str) -> Option<Vec<u8>> {
         _ => panic!("Unknown type {} for object {}", fmt, sha),
     }
 }
+
+fn object_write(obj: &impl GitObject,repo: Option<GitRepository>) -> &str{
+
+    //Treating as option. Python is a dumbass language
+    let data = obj.serialize(repo);
+    let mut result = Vec::new();
+    result.extend_from_slice(obj.get_format());
+    result.push(b' ');
+    result.extend_from_slice(data.len().to_string().as_bytes());
+    result.push(b'\0');
+    result.extend_from_slice(&data);
+
+    let mut hasher = Sha1::new();
+    hasher.update(&result);
+    let sha  = format!("{:x}",hasher.finalize());
+
+    match repo{
+        Some(repo) => {
+            let path = repo.repo_file(format!("objects/{}/{}", &sha[0..2], &sha[2..]).as_str(), true).unwrap();
+            if !path.exists(){
+            let file = std::fs::File::create(path).unwrap();
+            let mut encoder = ZlibEncoder::new(file, Compression::default());
+            encoder.write_all(&result).expect("Failed to compress");
+            }
+        },
+        None => {}
+    }
+    &sha
+}
+
