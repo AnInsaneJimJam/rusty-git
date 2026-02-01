@@ -95,7 +95,8 @@ impl GitRepository {
         self.gitdir.join(path)
     }
 
-    /// Same as repo_path, but mkdir the parent directory if absent.
+    // Find the parent folder of the file needed to accessed. Then calls repo_dir with mkdir bool passed.
+    // Ex: repo_file("hooks/pre-commit", true) -> uses repo_dir to make sure .git/hooks exsists. And return the full path to .git/hooks/pre-commit. 
     pub fn repo_file(&self, path: &str, mkdir: bool) -> Option<PathBuf> {
         let target_path = self.repo_path(path);
         if let Some(parent) = target_path.parent() {
@@ -106,7 +107,8 @@ impl GitRepository {
         None
     }
 
-    /// Same as repo_path, but mkdir the directory if mkdir is true.
+    /// Calculates the path using repo_path. If dir exsists => returns path. If does not exsist and mkdir is true. It makes the dir and all the parents folder
+    /// repo_dir("refs/tags",true) -> creates .git/refs/tags even if refs doesn't exsist
     pub fn repo_dir(&self, path: &str, mkdir: bool) -> Option<PathBuf> {
         let p = self.repo_path(path);
 
@@ -127,13 +129,17 @@ impl GitRepository {
     }}
 
 
-    // Create a new repository at path
+    /// Initializes a new Git repository at the given path.
+    ///
+    /// This function creates the `.git` directory structure, including:
+    /// - Subdirectories: `branches`, `objects`, `refs/tags`, and `refs/heads`.
+    /// - Files: `description`, `HEAD`, and `config`.
     fn repo_create(path: String) -> Result<GitRepository, String> {
         let repo = GitRepository::new(path, true).expect("Unable to create a repo");
         let worktree = &repo.worktree;
         let gitdir = &repo.gitdir;
         if worktree.exists() {
-            if worktree.is_dir() {
+            if !worktree.is_dir() {
                 return Err(format!("{:?} is not a directory", worktree));
             }
             if gitdir.exists() && fs::read_dir(gitdir).expect("").count() != 0 {
@@ -156,17 +162,23 @@ impl GitRepository {
             repo.repo_file("HEAD", false).unwrap(),
             "ref: refs/heads/master\n",
         );
-        //TODO: yet to be implemented 
-        fs::write(
-            repo.repo_file("config", false).unwrap(),
-            repo_default_config(),
-        );
+        let config_path = repo.repo_file("config",false).expect("Coud not create path for config");
+        let default_conf = repo_default_config();
+
+        default_conf.write_to_file(config_path).expect("Failed to write default config");
         return Ok(repo);
     }
 
-//TODO: yet to be implemented
-fn repo_default_config() -> String {
-    todo!("Implement it")
+
+fn repo_default_config() -> Ini {
+    let mut conf = Ini::new();
+    
+    conf.with_section(Some("core"))
+        .set("repositoryformatversion", "0")
+        .set("filemode", "false")
+        .set("bare", "false");
+
+    conf
 }
 
 // Have to implement the default parameter
