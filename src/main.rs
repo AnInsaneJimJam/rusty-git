@@ -1,6 +1,9 @@
 #![allow(warnings)]
 use ini::Ini;
-use std::{env, fs, path::{Path, PathBuf}};
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -96,7 +99,7 @@ impl GitRepository {
     }
 
     // Find the parent folder of the file needed to accessed. Then calls repo_dir with mkdir bool passed.
-    // Ex: repo_file("hooks/pre-commit", true) -> uses repo_dir to make sure .git/hooks exsists. And return the full path to .git/hooks/pre-commit. 
+    // Ex: repo_file("hooks/pre-commit", true) -> uses repo_dir to make sure .git/hooks exsists. And return the full path to .git/hooks/pre-commit.
     pub fn repo_file(&self, path: &str, mkdir: bool) -> Option<PathBuf> {
         let target_path = self.repo_path(path);
         if let Some(parent) = target_path.parent() {
@@ -126,53 +129,55 @@ impl GitRepository {
         }
 
         None
-    }}
-
-
-    /// Initializes a new Git repository at the given path.
-    ///
-    /// This function creates the `.git` directory structure, including:
-    /// - Subdirectories: `branches`, `objects`, `refs/tags`, and `refs/heads`.
-    /// - Files: `description`, `HEAD`, and `config`.
-    fn repo_create(path: String) -> Result<GitRepository, String> {
-        let repo = GitRepository::new(path, true).expect("Unable to create a repo");
-        let worktree = &repo.worktree;
-        let gitdir = &repo.gitdir;
-        if worktree.exists() {
-            if !worktree.is_dir() {
-                return Err(format!("{:?} is not a directory", worktree));
-            }
-            if gitdir.exists() && fs::read_dir(gitdir).expect("").count() != 0 {
-                return Err(format!(" {:?} is not empty", worktree));
-            }
-        } else {
-            fs::create_dir(&worktree)
-                .expect("Failed to create directory while running |repo_create|");
-        }
-        repo.repo_dir("branches", true);
-        repo.repo_dir("objects", true);
-        repo.repo_dir("refs/tags", true);
-        repo.repo_dir("refs/heads", true);
-
-        fs::write(
-            repo.repo_file("description", false).unwrap(),
-            "Unnamed repository; edit this file 'description' to name the repository.\n",
-        );
-        fs::write(
-            repo.repo_file("HEAD", false).unwrap(),
-            "ref: refs/heads/master\n",
-        );
-        let config_path = repo.repo_file("config",false).expect("Coud not create path for config");
-        let default_conf = repo_default_config();
-
-        default_conf.write_to_file(config_path).expect("Failed to write default config");
-        return Ok(repo);
     }
+}
 
+/// Initializes a new Git repository at the given path.
+///
+/// This function creates the `.git` directory structure, including:
+/// - Subdirectories: `branches`, `objects`, `refs/tags`, and `refs/heads`.
+/// - Files: `description`, `HEAD`, and `config`.
+fn repo_create(path: String) -> Result<GitRepository, String> {
+    let repo = GitRepository::new(path, true).expect("Unable to create a repo");
+    let worktree = &repo.worktree;
+    let gitdir = &repo.gitdir;
+    if worktree.exists() {
+        if !worktree.is_dir() {
+            return Err(format!("{:?} is not a directory", worktree));
+        }
+        if gitdir.exists() && fs::read_dir(gitdir).expect("").count() != 0 {
+            return Err(format!(" {:?} is not empty", worktree));
+        }
+    } else {
+        fs::create_dir(&worktree).expect("Failed to create directory while running |repo_create|");
+    }
+    repo.repo_dir("branches", true);
+    repo.repo_dir("objects", true);
+    repo.repo_dir("refs/tags", true);
+    repo.repo_dir("refs/heads", true);
+
+    fs::write(
+        repo.repo_file("description", false).unwrap(),
+        "Unnamed repository; edit this file 'description' to name the repository.\n",
+    );
+    fs::write(
+        repo.repo_file("HEAD", false).unwrap(),
+        "ref: refs/heads/master\n",
+    );
+    let config_path = repo
+        .repo_file("config", false)
+        .expect("Coud not create path for config");
+    let default_conf = repo_default_config();
+
+    default_conf
+        .write_to_file(config_path)
+        .expect("Failed to write default config");
+    return Ok(repo);
+}
 
 fn repo_default_config() -> Ini {
     let mut conf = Ini::new();
-    
+
     conf.with_section(Some("core"))
         .set("repositoryformatversion", "0")
         .set("filemode", "false")
@@ -181,22 +186,31 @@ fn repo_default_config() -> Ini {
     conf
 }
 
-// Have to implement the default parameter
 fn cmd_init(args: &Vec<String>) {
-    if(args.len() == 4){
-    repo_create(args[3].clone());}
-    else if(args.len() == 3){
+    if (args.len() == 4) {
+        repo_create(args[3].clone());
+    } else if (args.len() == 3) {
         repo_create(String::from(".")).expect("Not able to create repo in source");
-    }else{
-        panic!("Invalid Command");
+    } else {
+        panic!("Too little or too many arguements");
     }
 }
 
-fn repo_find(path:String, required :bool) -> GitRepository{
-    let path_buf = PathBuf::from(path.clone());
-    if((path_buf.join(".git")).is_dir()){
-        return GitRepository::new(path,false).unwrap();
+fn repo_find(path: String, required: bool) -> Option<GitRepository> {
+    let path_buf = fs::canonicalize(&path).expect("Failed to resolve path");
+    if ((path_buf.join(".git")).is_dir()) {
+        return Some(GitRepository::new(path, false).unwrap());
     }
-    todo!("Implement parent stuff")
+    let parent = path_buf.parent();
+    match parent {
+        Some(parent) => repo_find(String::from(parent.to_str().unwrap()), required),
+        None => {
+            // None means root
+            if required {
+                panic!("No git directory");
+            } else {
+                None
+            }
+        }
+    }
 }
-
