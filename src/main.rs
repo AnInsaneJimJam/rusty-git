@@ -1,7 +1,9 @@
 #![allow(warnings)]
+use flate2::read::ZlibDecoder;
 use ini::Ini;
 use std::{
     env, fs,
+    io::Read,
     path::{Path, PathBuf},
 };
 
@@ -212,5 +214,63 @@ fn repo_find(path: String, required: bool) -> Option<GitRepository> {
                 None
             }
         }
+    }
+}
+
+trait GitObject {
+    fn new(&self, data: Option<String>) {
+        match data {
+            Some(data) => self.deserialize(data),
+            None => self.init(),
+        }
+    }
+
+    // Must be implemented by whom the trait is implied by
+    fn serialize(&self, repo: GitRepository) {}
+    fn deserialize(&self, data: String) {}
+    fn init(&self) {}
+}
+
+/// Read object sha from Git repository repo. Return a Gitobject whose exact type depends on object
+fn object_read(repo: GitRepository, sha: &str) -> Option<Vec<u8>> {
+    let path = repo
+        .repo_file(
+            format!("objects/{}/{}", &sha[0..2], &sha[2..]).as_str(),
+            false,
+        )
+        .unwrap();
+
+    if !path.is_file() {
+        return None;
+    }
+
+    let file = fs::File::open(path).expect("Should have been able to read file");
+    let mut decoder = ZlibDecoder::new(file);
+    let mut raw = Vec::new();
+    decoder.read_to_end(&mut raw).ok()?;
+
+    // Read object type
+    let x = raw.iter().position(|&b| b == b' ')?;
+    let fmt = &raw[0..x];
+
+    // Read and validate object size
+    let y = raw.iter().position(|&b| b == b'\x00')?;
+    let size = &raw[x + 1..y];
+    let size = str::from_utf8(size).expect("Should have been able to convert u8 value to string");
+    let size: usize = size
+        .parse()
+        .expect("Parse failed in converting string to usize");
+
+    if size != raw.len() - y - 1 {
+        panic!("Malformed object {}: bad length", sha);
+    }
+
+    let fmt = str::from_utf8(fmt).unwrap();
+    match fmt {
+        "commit" => todo!(),
+        "tree" => todo!(),
+        "tag" => todo!(),
+        "blob" => todo!(),
+        _ => panic!("Unknown type {} for object {}", fmt, sha),
     }
 }
