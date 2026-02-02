@@ -2,9 +2,7 @@
 use flate2::{read::ZlibDecoder,write::ZlibEncoder,Compression};
 use ini::Ini;
 use std::{
-    env, fs,
-    io::{Read, Write},
-    path::{Path, PathBuf},
+    env, fs, io::{Read, Write}, panic, path::{Path, PathBuf}
 };
 use sha1::{Sha1, Digest};
 
@@ -34,7 +32,6 @@ fn main() {
     }
 
     fn cmd_add(args: &Vec<String>) {}
-    fn cmd_cat_file(args: &Vec<String>) {}
     fn cmd_check_ignore(args: &Vec<String>) {}
     fn cmd_checkout(args: &Vec<String>) {}
     fn cmd_commit(args: &Vec<String>) {}
@@ -219,7 +216,7 @@ fn repo_find(path: String, required: bool) -> Option<GitRepository> {
 }
 
 trait GitObject {
-    fn new(&self, data: Option<String>) {
+    fn new(&mut self, data: Option<String>) {
         match data {
             Some(data) => self.deserialize(data),
             None => self.init(),
@@ -227,14 +224,18 @@ trait GitObject {
     }
 
     // Must be implemented by whom the trait is implied by
-    fn serialize(&self, repo: Option<GitRepository>) {}
-    fn deserialize(&self, data: String) {}
-    fn init(&self) {}
-    fn get_format(&self) -> &[u8]{}
+    fn serialize(&self, repo: &Option<GitRepository>) -> String {
+        panic!("Implement me")
+    }
+    fn deserialize(&mut self, data: String) {}
+    fn get_format(&self) -> &[u8]{
+        panic!("Implement me")
+    }
+    fn init(&self){}
 }
 
 /// Read object sha from Git repository repo. Return a Gitobject whose exact type depends on object
-fn object_read(repo: GitRepository, sha: &str) -> Option<Vec<u8>> {
+fn object_read(repo: GitRepository, sha: String) -> Option<Vec<u8>> {
     let path = repo
         .repo_file(
             format!("objects/{}/{}", &sha[0..2], &sha[2..]).as_str(),
@@ -277,16 +278,15 @@ fn object_read(repo: GitRepository, sha: &str) -> Option<Vec<u8>> {
     }
 }
 
-fn object_write(obj: &impl GitObject,repo: Option<GitRepository>) -> &str{
-
+fn object_write(obj: &impl GitObject,repo: Option<GitRepository>) -> String{
     //Treating as option. Python is a dumbass language
-    let data = obj.serialize(repo);
+    let data = obj.serialize(&repo);
     let mut result = Vec::new();
     result.extend_from_slice(obj.get_format());
     result.push(b' ');
     result.extend_from_slice(data.len().to_string().as_bytes());
     result.push(b'\0');
-    result.extend_from_slice(&data);
+    result.extend_from_slice(data.as_bytes());
 
     let mut hasher = Sha1::new();
     hasher.update(&result);
@@ -303,6 +303,35 @@ fn object_write(obj: &impl GitObject,repo: Option<GitRepository>) -> &str{
         },
         None => {}
     }
-    &sha
+    sha
+}
+
+struct GitBlob{
+    blobdata: String
+}
+
+impl GitObject for GitBlob{
+    fn serialize(&self, repo: &Option<GitRepository>) -> String{
+        self.blobdata.clone()
+    }
+    fn deserialize(&mut self, data: String) {
+        self.blobdata = data.clone();
+    }
+    fn get_format(&self) -> &[u8] {
+        return b"blob";
+    }
+}
+
+// rgit cat-file TYPE OBJECT
+fn cmd_cat_file(args: &Vec<String>) {
+    if args.len() < 5 {
+        panic!("Usage: rgit cat-file TYPE OBJECT");
+    }
+    
+    let obj_type = &args[3];
+    let obj_sha = &args[4];
+    
+    let repo = repo_find(".".to_string(), true).expect("Not a git repository");
+    cat_file(repo, obj_sha, Some(obj_type));
 }
 
