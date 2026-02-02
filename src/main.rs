@@ -35,7 +35,6 @@ fn main() {
     fn cmd_check_ignore(args: &Vec<String>) {}
     fn cmd_checkout(args: &Vec<String>) {}
     fn cmd_commit(args: &Vec<String>) {}
-    fn cmd_hash_object(args: &Vec<String>) {}
     fn cmd_log(args: &Vec<String>) {}
     fn cmd_ls_files(args: &Vec<String>) {}
     fn cmd_ls_trees(args: &Vec<String>) {}
@@ -196,6 +195,7 @@ fn cmd_init(args: &Vec<String>) {
     }
 }
 
+/// Finds the .git file
 fn repo_find(path: String, required: bool) -> Option<GitRepository> {
     let path_buf = fs::canonicalize(&path).expect("Failed to resolve path");
     if ((path_buf.join(".git")).is_dir()) {
@@ -323,6 +323,7 @@ impl GitObject for GitBlob{
 }
 
 // rgit cat-file TYPE OBJECT
+// Have to see arg parsing later
 fn cmd_cat_file(args: &Vec<String>) {
     if args.len() < 5 {
         panic!("Usage: rgit cat-file TYPE OBJECT");
@@ -335,3 +336,18 @@ fn cmd_cat_file(args: &Vec<String>) {
     cat_file(repo, obj_sha, Some(obj_type));
 }
 
+// See later this function
+fn cat_file(repo: GitRepository, object: &str, fmt: Option<&str>) {
+    let sha = object_find(&repo, object, fmt, true);
+    
+    if let Some(data) = object_read(repo, sha) {
+        std::io::stdout().write_all(&data).unwrap();
+    }
+    todo!()
+}
+
+fn object_find(repo: &GitRepository, name: &str, fmt: Option<&str>, follow: bool) -> String {
+    name.to_string()
+}
+
+fn cmd_hash_object(args: &Vec<String>) {}
