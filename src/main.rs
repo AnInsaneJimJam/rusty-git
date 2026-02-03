@@ -54,7 +54,7 @@ fn main() {
     match &cli.command {
         Commands::Init { path } => cmd_init(path),
         Commands::CatFile { type_, object } => cmd_cat_file(type_, object),
-        Commands::HashObject { type_, write, path } => cmd_hash_object(),
+        Commands::HashObject { type_, write, path } => cmd_hash_object(type_,write,path),
         Commands::Add => cmd_add(),
         Commands::CheckIgnore => cmd_check_ignore(),
         Commands::Checkout => cmd_checkout(),

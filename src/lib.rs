@@ -310,4 +310,27 @@ fn object_find(repo: &GitRepository, name: &str, fmt: Option<&str>, follow: bool
     name.to_string()
 }
 
-pub fn cmd_hash_object() {}
+pub fn cmd_hash_object(type_:&str,write:&bool,path:&str) {
+    let repo = if *write{
+        repo_find(".".to_string(), true)
+    }else{
+        None
+    };
+    let data = fs::read_to_string(path).expect("Could not read file");
+    let sha = object_hash(data,type_,repo);
+    println!("{}",sha);
+
+}
+
+fn object_hash(data: String,fmt: &str,repo: Option<GitRepository>) -> String{
+    match fmt {
+        "blob" => {
+            let mut obj = GitBlob { blobdata: data };
+            object_write(&obj, repo)
+        }
+        "commit" | "tree" | "tag" => {
+            panic!("Object type {} is not yet implemented in Rust", fmt)
+        }
+        _ => panic!("Unknown type {}!", fmt),
+    }
+}
