@@ -328,9 +328,9 @@ fn object_hash(data: String,fmt: &str,repo: Option<GitRepository>) -> String{
             let mut obj = GitBlob { blobdata: data };
             object_write(&obj, repo)
         }
-        "commit" | "tree" | "tag" => {
-            panic!("Object type {} is not yet implemented in Rust", fmt)
-        }
+        "commit" => todo!(),
+        "tree" => todo!(),
+        "tag" => todo!(),
         _ => panic!("Unknown type {}!", fmt),
     }
 }
