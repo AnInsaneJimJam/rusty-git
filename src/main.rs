@@ -1,3 +1,4 @@
+#![allow(warnings)]
 use clap::{Parser, Subcommand};
 use flate2::{read::ZlibDecoder,write::ZlibEncoder,Compression};
 use ini::Ini;
@@ -21,11 +22,17 @@ enum Commands {
         path: String,
     },
     CatFile {
-        #[arg(name = "type")]
+        #[arg(name = "TYPE",value_parser = ["blob", "commit", "tag", "tree"])]
         type_: String,
         object: String,
     },
-    HashObject,
+    HashObject {
+        #[arg(short = 't', long = "TYPE", default_value = "blob", value_parser = ["blob", "commit", "tag", "tree"])]
+        type_: String,
+        #[arg(short = 'w')]
+        write: bool,
+        path: String,
+    },
     Add,
     CheckIgnore,
     Checkout,
@@ -46,7 +53,7 @@ fn main() {
     match &cli.command {
         Commands::Init { path } => cmd_init(path),
         Commands::CatFile { type_, object } => cmd_cat_file(type_, object),
-        Commands::HashObject => cmd_hash_object(),
+        Commands::HashObject { type_, write, path } => cmd_hash_object(),
         Commands::Add => cmd_add(),
         Commands::CheckIgnore => cmd_check_ignore(),
         Commands::Checkout => cmd_checkout(),
