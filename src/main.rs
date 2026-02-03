@@ -1,4 +1,4 @@
-#![allow(warnings)]
+use clap::{Parser, Subcommand};
 use flate2::{read::ZlibDecoder,write::ZlibEncoder,Compression};
 use ini::Ini;
 use std::{
@@ -6,44 +6,74 @@ use std::{
 };
 use sha1::{Sha1, Digest};
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
-    if args.len() < 3 {
-        panic!("Consider writing a command after rgit")
-    }
-    let command = &args[2];
-    match command.as_str() {
-        "add" => cmd_add(&args),
-        "cat-file" => cmd_cat_file(&args),
-        "check-ignore" => cmd_check_ignore(&args),
-        "checkout" => cmd_checkout(&args),
-        "commit" => cmd_commit(&args),
-        "hash-object" => cmd_hash_object(&args),
-        "init" => cmd_init(&args),
-        "log" => cmd_log(&args),
-        "ls-files" => cmd_ls_files(&args),
-        "ls-trees" => cmd_ls_trees(&args),
-        "rev-parse" => cmd_rev_parse(&args),
-        "rm" => cmd_rm(&args),
-        "show-ref" => cmd_show_ref(&args),
-        "status" => cmd_status(&args),
-        "tag" => cmd_tag(&args),
-        _ => println!("Bad Command!"),
-    }
-
-    fn cmd_add(args: &Vec<String>) {}
-    fn cmd_check_ignore(args: &Vec<String>) {}
-    fn cmd_checkout(args: &Vec<String>) {}
-    fn cmd_commit(args: &Vec<String>) {}
-    fn cmd_log(args: &Vec<String>) {}
-    fn cmd_ls_files(args: &Vec<String>) {}
-    fn cmd_ls_trees(args: &Vec<String>) {}
-    fn cmd_rev_parse(args: &Vec<String>) {}
-    fn cmd_rm(args: &Vec<String>) {}
-    fn cmd_show_ref(args: &Vec<String>) {}
-    fn cmd_status(args: &Vec<String>) {}
-    fn cmd_tag(args: &Vec<String>) {}
+#[derive(Parser)]
+#[command(name = "rgit")]
+#[command(about = "A Rust implementation of Git", long_about = None)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
 }
+
+#[derive(Subcommand)]
+enum Commands {
+    Init {
+        #[arg(default_value = ".")]
+        path: String,
+    },
+    CatFile {
+        #[arg(name = "type")]
+        type_: String,
+        object: String,
+    },
+    HashObject,
+    Add,
+    CheckIgnore,
+    Checkout,
+    Commit,
+    Log,
+    LsFiles,
+    LsTrees,
+    RevParse,
+    Rm,
+    ShowRef,
+    Status,
+    Tag,
+}
+
+fn main() {
+    let cli = Cli::parse();
+
+    match &cli.command {
+        Commands::Init { path } => cmd_init(path),
+        Commands::CatFile { type_, object } => cmd_cat_file(type_, object),
+        Commands::HashObject => cmd_hash_object(),
+        Commands::Add => cmd_add(),
+        Commands::CheckIgnore => cmd_check_ignore(),
+        Commands::Checkout => cmd_checkout(),
+        Commands::Commit => cmd_commit(),
+        Commands::Log => cmd_log(),
+        Commands::LsFiles => cmd_ls_files(),
+        Commands::LsTrees => cmd_ls_trees(),
+        Commands::RevParse => cmd_rev_parse(),
+        Commands::Rm => cmd_rm(),
+        Commands::ShowRef => cmd_show_ref(),
+        Commands::Status => cmd_status(),
+        Commands::Tag => cmd_tag(),
+    }
+}
+
+fn cmd_add() {}
+fn cmd_check_ignore() {}
+fn cmd_checkout() {}
+fn cmd_commit() {}
+fn cmd_log() {}
+fn cmd_ls_files() {}
+fn cmd_ls_trees() {}
+fn cmd_rev_parse() {}
+fn cmd_rm() {}
+fn cmd_show_ref() {}
+fn cmd_status() {}
+fn cmd_tag() {}
 
 struct GitRepository {
     worktree: PathBuf,
@@ -185,14 +215,8 @@ fn repo_default_config() -> Ini {
     conf
 }
 
-fn cmd_init(args: &Vec<String>) {
-    if (args.len() == 4) {
-        repo_create(args[3].clone());
-    } else if (args.len() == 3) {
-        repo_create(String::from(".")).expect("Not able to create repo in source");
-    } else {
-        panic!("Too little or too many arguements");
-    }
+fn cmd_init(path: &str) {
+    repo_create(path.to_string()).expect("Failed to create repo");
 }
 
 /// Finds the .git file
@@ -323,15 +347,7 @@ impl GitObject for GitBlob{
 }
 
 // rgit cat-file TYPE OBJECT
-// Have to see arg parsing later
-fn cmd_cat_file(args: &Vec<String>) {
-    if args.len() < 5 {
-        panic!("Usage: rgit cat-file TYPE OBJECT");
-    }
-    
-    let obj_type = &args[3];
-    let obj_sha = &args[4];
-    
+fn cmd_cat_file(obj_type: &str, obj_sha: &str) {
     let repo = repo_find(".".to_string(), true).expect("Not a git repository");
     cat_file(repo, obj_sha, Some(obj_type));
 }
@@ -350,4 +366,4 @@ fn object_find(repo: &GitRepository, name: &str, fmt: Option<&str>, follow: bool
     name.to_string()
 }
 
-fn cmd_hash_object(args: &Vec<String>) {}
+fn cmd_hash_object() {}
